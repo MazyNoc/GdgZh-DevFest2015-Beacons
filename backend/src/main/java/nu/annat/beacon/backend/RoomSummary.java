@@ -13,4 +13,8 @@ public class RoomSummary {
 		firstSeen = Math.min(firstSeen, currentRoomSummary.firstSeen);
 		lastSeen = Math.min(lastSeen, currentRoomSummary.lastSeen);
 	}
+
+	public long getDuration(){
+		return lastSeen-firstSeen;
+	}
 }

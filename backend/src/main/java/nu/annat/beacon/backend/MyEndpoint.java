@@ -20,6 +20,7 @@ import com.google.appengine.api.datastore.Query;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import javax.inject.Named;
 
@@ -36,6 +37,8 @@ import javax.inject.Named;
 	)
 )
 public class MyEndpoint {
+
+	private static final double MIN_STORED_DURATION = TimeUnit.MINUTES.toMillis(1);
 
 	/**
 	 * A simple endpoint method that takes a name and says Hi back
@@ -122,14 +125,16 @@ public class MyEndpoint {
 	}
 
 	private void mergeRoom(List<RoomSummary> result, RoomSummary currentRoomSummary) {
+		if(currentRoomSummary.getDuration()> MIN_STORED_DURATION) {
 		for (RoomSummary roomSummary : result) {
 			if (roomSummary.roomName.equals(currentRoomSummary.roomName)) {
 				roomSummary.add(currentRoomSummary);
 				return;
 			}
 		}
-		currentRoomSummary.timesVisited++;
-		currentRoomSummary.totalTime = currentRoomSummary.lastSeen - currentRoomSummary.firstSeen;
-		result.add(currentRoomSummary);
+			currentRoomSummary.timesVisited++;
+			currentRoomSummary.totalTime = currentRoomSummary.getDuration();
+			result.add(currentRoomSummary);
+		}
 	}
 }

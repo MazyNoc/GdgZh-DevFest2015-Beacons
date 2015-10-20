@@ -12,6 +12,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
+import android.os.Binder;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
 import android.support.v4.content.LocalBroadcastManager;
@@ -21,6 +22,7 @@ import com.google.api.client.extensions.android.http.AndroidHttp;
 import com.google.api.client.extensions.android.json.AndroidJsonFactory;
 
 import java.io.IOException;
+import java.net.BindException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -68,11 +70,12 @@ public class BeaconListenerService extends Service {
 			@Override
 			public void onScanResult(int callbackType, ScanResult result) {
 				super.onScanResult(callbackType, result);
-				Log.d(TAG, "scanresult ");
 				if (result != null && result.getScanRecord() != null && result.getScanRecord().getServiceUuids() != null) {
-					Log.d(TAG, result.getDevice().getAddress());
 					if (result.getScanRecord().getServiceUuids().contains(EddyStone.EDDYSTONE_SERVICE_UUID)) {
-						sendClosestBeacon(new EddyStone(result));
+						EddyStone newStone = new EddyStone(result);
+						sendDistance(newStone.getInstance(), newStone.getDistance());
+						sendClosestBeacon(newStone);
+
 					}
 				}
 			}
@@ -88,6 +91,13 @@ public class BeaconListenerService extends Service {
 				Log.e("StartScanner", "" + errorCode);
 			}
 		});
+	}
+
+	private void sendDistance(String instance, double distance) {
+		Intent newDistance = new Intent("newDistance");
+		newDistance.putExtra("instance", instance);
+		newDistance.putExtra("distance", distance);
+		LocalBroadcastManager.getInstance(getApplicationContext()).sendBroadcast(newDistance);
 	}
 
 	private void sendClosestBeacon(final EddyStone newStone) {

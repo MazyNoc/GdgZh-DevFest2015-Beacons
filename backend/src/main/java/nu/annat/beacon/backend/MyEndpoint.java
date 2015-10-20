@@ -19,7 +19,9 @@ import com.google.appengine.api.datastore.KeyFactory;
 import com.google.appengine.api.datastore.Query;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import javax.inject.Named;
@@ -120,6 +122,33 @@ public class MyEndpoint {
 				lastRoom = currentRoomSummary.roomName;
 			}
 			currentRoomSummary.lastSeen = userPosition.stopTime;
+		}
+		return result;
+	}
+
+	@ApiMethod(name = "summary.movingAverage")
+	public List<Object> movingAverage(){
+		List<UserPosition> positionList = getPositionList();
+		long firstTime = positionList.get(0).startTime;
+		long lastTime = positionList.get(positionList.size()-1).stopTime;
+		for (long i = firstTime; i < lastTime ; i++) {
+			Map<String, Long> timesBetween = getTimesBetween(firstTime, firstTime + TimeUnit.MINUTES.toMillis(10), positionList);
+
+		}
+		return null;
+	}
+
+	private Map<String, Long> getTimesBetween(long startTime, long endTime, List<UserPosition> positionList) {
+		Map<String, Long> result = new HashMap<>();
+		for (UserPosition userPosition : positionList) {
+			if(userPosition.startTime<endTime && userPosition.stopTime>startTime){
+				Long aLong = result.get(userPosition.roomName);
+				if(aLong == null) {
+					aLong = 0L;
+				}
+				aLong++;
+				result.put(userPosition.roomName, aLong);
+			}
 		}
 		return result;
 	}

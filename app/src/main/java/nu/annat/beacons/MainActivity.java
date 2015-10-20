@@ -1,5 +1,6 @@
 package nu.annat.beacons;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
@@ -26,7 +27,15 @@ public class MainActivity extends AppCompatActivity {
 					.setAction("Action", null).show();
 			}
 		});
+
+	initScan();
+
 	}
+	private void initScan() {
+		Intent intent = new Intent(this, BeaconListenerService.class);
+		this.startService(intent);
+	}
+
 
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {

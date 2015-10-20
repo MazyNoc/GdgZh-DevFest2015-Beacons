@@ -6,6 +6,11 @@
     <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap-theme.min.css">
     <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
     <script src="//netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>
+
+    <link rel="stylesheet" href="jquery/jquery-ui.min.css">
+    <script src="jquery/external/jquery/jquery.js"></script>
+    <script src="jquery/jquery-ui.min.js"></script>
+
 </head>
 <body role="document" style="padding-top: 70px;">
 
@@ -19,36 +24,44 @@
     <rect id="room7" x="140" y="58" width="24" height="29" />
     <rect id="room8" x="124" y="58" width="14" height="29" />
     <rect id="room9" x="98" y="58" width="24" height="29" />
+
 </svg>
+<div id="slider"></div>
 
 <script>
 
+    $roomData=[];
     room1.style.fill = "#f00";
+    $( "#slider" ).slider({
+        min: 0,
+        max: 100,
+        value: 100,
+        change: function( event, ui ) {
+            setData(ui.value)
+        }
+    });
+
+    function setData(value){
+        var len = $roomData.length;
+        var pos = Math.round(len*(value/100.0))
+        var data = $roomData[pos];
+        console.log( $roomData[pos])
+
+        data.roomCoverageList.forEach(function(entry){
+            console.log(entry.name + entry.percent);
+        });
+    }
 
 </script>
 
 <script type="text/javascript">
     // A function that attaches a "Say Hello" button click handler
     function enableClick() {
-      document.getElementById('helloButton').onclick = function() {
-        var name = document.getElementById('nameInput').value;
-        gapi.client.myApi.sayHi({'name': name}).execute(
-          function(response) {
-            var outputAlertDiv = document.getElementById('outputAlert');
-            outputAlertDiv.style.visibility = 'visible';
+        gapi.client.myApi.summary.movingAverage().execute(function(data){
+          console.log(data)
+          $roomData = data.items;
 
-            if (!response.error) {
-              outputAlertDiv.className = 'alert alert-success';
-              outputAlertDiv.innerHTML = '<h2>' + response.result.data + '</h2>';
-            }
-            else if (response.error) {
-              outputAlertDiv.className = 'alert alert-danger';
-              outputAlertDiv.innerHTML = '<b>Error Code: </b>' + response.error.code + ' [' + response.error.message + ']';
-            }
-          }
-        );
-        return false;
-      }
+        });
     }
     // This is called initially
     function init() {

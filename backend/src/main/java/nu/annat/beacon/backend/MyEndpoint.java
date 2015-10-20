@@ -19,10 +19,13 @@ import com.google.appengine.api.datastore.KeyFactory;
 import com.google.appengine.api.datastore.Query;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 import javax.inject.Named;
 
@@ -42,6 +45,7 @@ public class MyEndpoint {
 
 	private static final double MIN_STORED_DURATION = TimeUnit.MINUTES.toMillis(1);
 
+	private static Logger log = Logger.getLogger("MyEndPoint");
 	/**
 	 * A simple endpoint method that takes a name and says Hi back
 	 */
@@ -101,6 +105,7 @@ public class MyEndpoint {
 			userPosition.stopTime = (Long) entity.getProperty("stopTime");
 			userPositions.add(userPosition);
 		}
+
 		return userPositions;
 	}
 
@@ -127,15 +132,39 @@ public class MyEndpoint {
 	}
 
 	@ApiMethod(name = "summary.movingAverage")
-	public List<Object> movingAverage(){
+	public List<MovingAverage> movingAverage() {
+		List<MovingAverage> result = new ArrayList<>();
 		List<UserPosition> positionList = getPositionList();
 		long firstTime = positionList.get(0).startTime;
 		long lastTime = positionList.get(positionList.size()-1).stopTime;
-		for (long i = firstTime; i < lastTime ; i++) {
+		for (long i = firstTime; i < lastTime; i += TimeUnit.MINUTES.toMillis(1)) {
 			Map<String, Long> timesBetween = getTimesBetween(firstTime, firstTime + TimeUnit.MINUTES.toMillis(10), positionList);
-
+			result.add(calculateAverage(firstTime + TimeUnit.MINUTES.toMillis(10), timesBetween));
 		}
-		return null;
+		return result;
+	}
+
+	private MovingAverage calculateAverage(long l, Map<String, Long> timesBetween) {
+		MovingAverage result = new MovingAverage();
+		result.time = l;
+		float total = 0;
+		for (Long aLong : timesBetween.values()) {
+			total += aLong;
+		}
+
+		for (Map.Entry<String, Long> stringLongEntry : timesBetween.entrySet()) {
+			RoomCoverage coverage = new RoomCoverage();
+			coverage.name = stringLongEntry.getKey();
+			coverage.percent = stringLongEntry.getValue() / total;
+			result.roomCoverageList.add(coverage);
+		}
+		Collections.sort(result.roomCoverageList, new Comparator<RoomCoverage>() {
+			@Override
+			public int compare(RoomCoverage o1, RoomCoverage o2) {
+				return o1.name.compareTo(o2.name);
+			}
+		});
+		return result;
 	}
 
 	private Map<String, Long> getTimesBetween(long startTime, long endTime, List<UserPosition> positionList) {
@@ -150,6 +179,7 @@ public class MyEndpoint {
 				result.put(userPosition.roomName, aLong);
 			}
 		}
+		log.info(result.toString());
 		return result;
 	}
 

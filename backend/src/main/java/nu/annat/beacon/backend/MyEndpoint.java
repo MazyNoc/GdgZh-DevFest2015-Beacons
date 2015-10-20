@@ -169,8 +169,10 @@ public class MyEndpoint {
 
 	private Map<String, Long> getTimesBetween(long startTime, long endTime, List<UserPosition> positionList) {
 		Map<String, Long> result = new HashMap<>();
+		List<UserPosition> usedPosition = new ArrayList<>();
 		for (UserPosition userPosition : positionList) {
-			if(userPosition.startTime<endTime && userPosition.stopTime>startTime){
+			if(userPosition.startTime<=endTime && userPosition.stopTime>=startTime){
+				usedPosition. add(userPosition);
 				Long aLong = result.get(userPosition.roomName);
 				if(aLong == null) {
 					aLong = 0L;
@@ -180,6 +182,7 @@ public class MyEndpoint {
 			}
 		}
 		log.info(result.toString());
+		log.info(usedPosition.toString());
 		return result;
 	}
 

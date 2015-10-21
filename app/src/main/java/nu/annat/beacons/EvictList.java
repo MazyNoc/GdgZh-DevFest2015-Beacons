@@ -31,7 +31,7 @@ public class EvictList extends HashMap<EddyStone, Long> {
 		Set<EddyStone> eddyStones = keySet();
 		EddyStone current = null;
 		for (EddyStone eddyStone : eddyStones) {
-			if (current == null || eddyStone.getDistance() < current.getDistance()) {
+			if (current == null || eddyStone.getAgedDistance() < current.getAgedDistance()) {
 				current = eddyStone;
 			}
 		}

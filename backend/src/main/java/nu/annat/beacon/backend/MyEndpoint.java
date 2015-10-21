@@ -57,6 +57,12 @@ public class MyEndpoint {
 		return response;
 	}
 
+	@ApiMethod(name = "deleteAll")
+	public void deleteAll(){
+		DatastoreService datastoreService = DatastoreServiceFactory.getDatastoreService();
+		Query userPosition = new Query("UserPosition");
+	}
+
 	@ApiMethod(name = "beacons.list")
 	public List<Beacon> getBeaconList() {
 		List<Beacon> result = new ArrayList<>();
@@ -138,8 +144,8 @@ public class MyEndpoint {
 		long firstTime = positionList.get(0).startTime;
 		long lastTime = positionList.get(positionList.size()-1).stopTime;
 		for (long i = firstTime; i < lastTime; i += TimeUnit.MINUTES.toMillis(1)) {
-			Map<String, Long> timesBetween = getTimesBetween(firstTime, firstTime + TimeUnit.MINUTES.toMillis(10), positionList);
-			result.add(calculateAverage(firstTime + TimeUnit.MINUTES.toMillis(10), timesBetween));
+			Map<String, Long> timesBetween = getTimesBetween(i, i + TimeUnit.MINUTES.toMillis(10), positionList);
+			result.add(calculateAverage(i + TimeUnit.MINUTES.toMillis(10), timesBetween));
 		}
 		return result;
 	}

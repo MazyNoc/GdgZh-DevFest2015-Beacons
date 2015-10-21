@@ -4,6 +4,7 @@ import android.bluetooth.le.ScanResult;
 import android.os.ParcelUuid;
 
 import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 
 public class EddyStone {
 
@@ -14,6 +15,7 @@ public class EddyStone {
 	private final int txPower;
 	private final String nameSpace;
 	private final String instance;
+	private final long time;
 
 	EddyStone(ScanResult result) {
 		byte[] serviceData = result.getScanRecord().getServiceData(EDDYSTONE_SERVICE_UUID);
@@ -24,6 +26,8 @@ public class EddyStone {
 		nameSpace = toHexString(namespaceBytes);
 		byte[] instanceBytes = Arrays.copyOfRange(serviceData, 12, 18);
 		instance = toHexString(instanceBytes);
+
+		time = System.currentTimeMillis();
 	}
 
 	public static String toHexString(byte[] bytes) {
@@ -46,6 +50,18 @@ public class EddyStone {
 
 	public double getDistance() {
 		return Math.pow(10, ((txPower - rssi) - 41) / 20.0);
+	}
+
+	public long getAge(){
+		return System.currentTimeMillis() - time;
+	}
+
+	/**
+	 *
+	 * @return distance + one centimeter per second.
+	 */
+	public double getAgedDistance() {
+		return getDistance() + 0.02*TimeUnit.MILLISECONDS.toSeconds(getAge());
 	}
 
 	@Override

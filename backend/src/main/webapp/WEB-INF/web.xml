@@ -5,7 +5,10 @@
         <servlet-class>com.google.api.server.spi.SystemServiceServlet</servlet-class>
         <init-param>
             <param-name>services</param-name>
-            <param-value>nu.annat.beacon.backend.MyEndpoint</param-value>
+            <param-value>
+                nu.annat.beacon.backend.MyEndpoint,
+                nu.annat.beacon.backend.ScheduleEndPoint
+            </param-value>
         </init-param>
     </servlet>
     <servlet-mapping>

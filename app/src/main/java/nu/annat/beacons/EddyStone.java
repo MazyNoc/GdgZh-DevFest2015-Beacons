@@ -30,6 +30,19 @@ public class EddyStone {
 		time = System.currentTimeMillis();
 	}
 
+	public EddyStone(final int rssi, final byte[] record) {
+		this.rssi = rssi;
+		txPower = record[12];
+
+		byte[] namespaceBytes = Arrays.copyOfRange(record, 13, 23);
+		nameSpace = toHexString(namespaceBytes);
+		byte[] instanceBytes = Arrays.copyOfRange(record, 23, 29);
+		instance = toHexString(instanceBytes);
+
+		time = System.currentTimeMillis();
+
+	}
+
 	public static String toHexString(byte[] bytes) {
 		char[] chars = new char[bytes.length * 2];
 		for (int i = 0; i < bytes.length; i++) {

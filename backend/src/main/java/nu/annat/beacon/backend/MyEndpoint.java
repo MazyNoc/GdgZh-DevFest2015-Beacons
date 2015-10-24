@@ -22,8 +22,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
@@ -46,6 +48,7 @@ public class MyEndpoint {
 	private static final double MIN_STORED_DURATION = TimeUnit.MINUTES.toMillis(1);
 
 	private static Logger log = Logger.getLogger("MyEndPoint");
+
 	/**
 	 * A simple endpoint method that takes a name and says Hi back
 	 */
@@ -58,7 +61,7 @@ public class MyEndpoint {
 	}
 
 	@ApiMethod(name = "deleteAll")
-	public void deleteAll(){
+	public void deleteAll() {
 		DatastoreService datastoreService = DatastoreServiceFactory.getDatastoreService();
 		Query userPosition = new Query("UserPosition");
 	}
@@ -69,20 +72,30 @@ public class MyEndpoint {
 		result.add(new Beacon("edd1ebeac04e5defa017", "f8ca7b174716", "Office"));
 		result.add(new Beacon("edd1ebeac04e5defa017", "cc33b9ec1e1b", "LivingRoom"));
 		result.add(new Beacon("edd1ebeac04e5defa017", "ee64bd972de3", "Sleeping"));
+		result.add(new Beacon("edd1ebeac04e5defa017", "d85c0b475905", "Room01"));
+		result.add(new Beacon("edd1ebeac04e5defa017", "f5da69f66394", "Room02"));
+		result.add(new Beacon("edd1ebeac04e5defa017", "d33461148541", "Room03"));
+		result.add(new Beacon("edd1ebeac04e5defa017", "c8a18299f079", "Room04"));
+		result.add(new Beacon("edd1ebeac04e5defa017", "f7dbd989e65a", "Room05"));
+		result.add(new Beacon("edd1ebeac04e5defa017", "d1fb35504712", "Room06"));
+		result.add(new Beacon("edd1ebeac04e5defa017", "f40b9729797b", "Room07"));
+		result.add(new Beacon("edd1ebeac04e5defa017", "d2f805339948", "Room08"));
+		result.add(new Beacon("edd1ebeac04e5defa017", "d94afb9d9d35", "Room09"));
 		return result;
 	}
 
 	@ApiMethod(name = "position.update")
 	public void updateUserPosition(@Named("entryKey") long entryKey) {
 		DatastoreService datastoreService = DatastoreServiceFactory.getDatastoreService();
-			try {
-				Entity oldUserPosition = datastoreService.get(KeyFactory.createKey("UserPosition", entryKey));
-				oldUserPosition.setProperty("stopTime", System.currentTimeMillis());
-				datastoreService.put(oldUserPosition);
-			} catch (EntityNotFoundException e) {
-				e.printStackTrace();
-			}
+		try {
+			Entity oldUserPosition = datastoreService.get(KeyFactory.createKey("UserPosition", entryKey));
+			oldUserPosition.setProperty("stopTime", System.currentTimeMillis());
+			datastoreService.put(oldUserPosition);
+		} catch (EntityNotFoundException e) {
+			e.printStackTrace();
+		}
 	}
+
 	@ApiMethod(name = "position.store")
 	public StoredPosition storeUserPosition(UserPosition userPosition) {
 		DatastoreService datastoreService = DatastoreServiceFactory.getDatastoreService();
@@ -142,7 +155,7 @@ public class MyEndpoint {
 		List<MovingAverage> result = new ArrayList<>();
 		List<UserPosition> positionList = getPositionList();
 		long firstTime = positionList.get(0).startTime;
-		long lastTime = positionList.get(positionList.size()-1).stopTime;
+		long lastTime = positionList.get(positionList.size() - 1).stopTime;
 		for (long i = firstTime; i < lastTime; i += TimeUnit.MINUTES.toMillis(1)) {
 			Map<String, Long> timesBetween = getTimesBetween(i, i + TimeUnit.MINUTES.toMillis(10), positionList);
 			result.add(calculateAverage(i + TimeUnit.MINUTES.toMillis(10), timesBetween));
@@ -177,10 +190,10 @@ public class MyEndpoint {
 		Map<String, Long> result = new HashMap<>();
 		List<UserPosition> usedPosition = new ArrayList<>();
 		for (UserPosition userPosition : positionList) {
-			if(userPosition.startTime<=endTime && userPosition.stopTime>=startTime){
-				usedPosition. add(userPosition);
+			if (userPosition.startTime <= endTime && userPosition.stopTime >= startTime) {
+				usedPosition.add(userPosition);
 				Long aLong = result.get(userPosition.roomName);
-				if(aLong == null) {
+				if (aLong == null) {
 					aLong = 0L;
 				}
 				aLong++;
@@ -193,16 +206,20 @@ public class MyEndpoint {
 	}
 
 	private void mergeRoom(List<RoomSummary> result, RoomSummary currentRoomSummary) {
-		if(currentRoomSummary.getDuration()> MIN_STORED_DURATION) {
-		for (RoomSummary roomSummary : result) {
-			if (roomSummary.roomName.equals(currentRoomSummary.roomName)) {
-				roomSummary.add(currentRoomSummary);
-				return;
+		Set<String> visitedSet = new HashSet();
+		if (currentRoomSummary.getDuration() > MIN_STORED_DURATION) {
+			for (RoomSummary roomSummary : result) {
+				if (visitedSet.add(roomSummary.roomName)) {
+					if (roomSummary.roomName.equals(currentRoomSummary.roomName)) {
+						roomSummary.add(currentRoomSummary);
+						return;
+					}
+				}
+
+				currentRoomSummary.timesVisited++;
+				currentRoomSummary.totalTime = currentRoomSummary.getDuration();
+				result.add(currentRoomSummary);
 			}
-		}
-			currentRoomSummary.timesVisited++;
-			currentRoomSummary.totalTime = currentRoomSummary.getDuration();
-			result.add(currentRoomSummary);
 		}
 	}
 }

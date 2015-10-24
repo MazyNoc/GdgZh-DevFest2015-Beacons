@@ -13,18 +13,20 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.os.Binder;
+import android.os.Handler;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
 import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.google.api.client.extensions.android.http.AndroidHttp;
 import com.google.api.client.extensions.android.json.AndroidJsonFactory;
 
 import java.io.IOException;
-import java.net.BindException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import nu.annat.beacon.backend.myApi.MyApi;
@@ -34,12 +36,44 @@ import nu.annat.beacon.backend.myApi.model.StoredPosition;
 import nu.annat.beacon.backend.myApi.model.UserPosition;
 
 public class BeaconListenerService extends Service {
-	private static final String TAG = BeaconListenerService.class.getSimpleName();
+	private static final String TAG = BeaconListenerService.class.getSimpleName() + "a";
+
+	public class MyBinder extends Binder {
+		public BeaconListenerService getService() {
+			return BeaconListenerService.this;
+		}
+	}
+
+	IBinder myBinder = new MyBinder();
 	private MyApi myApiService;
 	private EvictList eddyStoneList = new EvictList();
 	private long lastSent = 0;
+	private Handler handler;
+	private BeaconCollection beaconCollection;
+	private String userId;
+	public Runnable removeRunnable = new Runnable() {
+		@Override
+		public void run() {
+			sendClosestBeacon(null);
+		}
+	};
+	private BluetoothLeScanner scanner;
 
 	public BeaconListenerService() {
+	}
+
+	@Override
+	public void onCreate() {
+		super.onCreate();
+		getNameList();
+		handler = new Handler();
+		SharedPreferences beacon = this.getSharedPreferences("default", MODE_PRIVATE);
+		userId = beacon.getString("userId", null);
+		if (userId == null) {
+			userId = UUID.randomUUID().toString();
+			beacon.edit().putString("userId", userId).apply();
+		}
+		initScan();
 	}
 
 	@Override
@@ -48,21 +82,26 @@ public class BeaconListenerService extends Service {
 			stopSelf();
 			return Service.START_NOT_STICKY;
 		}
-		initScan();
 		return Service.START_STICKY;
 	}
 
 	@Override
 	public IBinder onBind(Intent intent) {
-		// TODO: Return the communication channel to the service.
-		throw new UnsupportedOperationException("Not yet implemented");
+		return myBinder;
 	}
 
 	private void initScan() {
 		BluetoothManager manager = (BluetoothManager) this.getApplicationContext().getSystemService(Context.BLUETOOTH_SERVICE);
 		BluetoothAdapter btAdapter = manager.getAdapter();
 
-		BluetoothLeScanner scanner = btAdapter.getBluetoothLeScanner();
+		scanner = btAdapter.getBluetoothLeScanner();
+
+		if (scanner == null) {
+			Toast.makeText(this, "You must enable Bluetooth for this app to work", Toast.LENGTH_LONG).show();
+			stopSelf();
+			return;
+		}
+
 		ScanSettings settings = new ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_POWER).build();
 		List<ScanFilter> filters = new ArrayList<>();
 		scanner.startScan(filters, settings, new ScanCallback() {
@@ -72,10 +111,21 @@ public class BeaconListenerService extends Service {
 				super.onScanResult(callbackType, result);
 				if (result != null && result.getScanRecord() != null && result.getScanRecord().getServiceUuids() != null) {
 					if (result.getScanRecord().getServiceUuids().contains(EddyStone.EDDYSTONE_SERVICE_UUID)) {
-						EddyStone newStone = new EddyStone(result);
-						sendDistance(newStone.getInstance(), newStone.getDistance());
-						sendClosestBeacon(newStone);
-
+						try {
+							EddyStone newStone = new EddyStone(result);
+							if (findBeacon(newStone, beaconCollection) != null) {
+								sendDistance(newStone.getInstance(), newStone.getDistance());
+								synchronized (eddyStoneList) {
+									addNewStone(newStone);
+									EddyStone closest = eddyStoneList.getClosest();
+									eddyStoneList.evict(TimeUnit.SECONDS.toMillis(30));
+									if (closest != null) {
+										sendClosestBeacon(closest);
+									}
+								}
+							}
+						} catch (Exception ignore) {
+						}
 					}
 				}
 			}
@@ -93,6 +143,13 @@ public class BeaconListenerService extends Service {
 		});
 	}
 
+	private void addNewStone(EddyStone newStone) {
+		Beacon beacon = findBeacon(newStone, beaconCollection);
+		if (beacon != null) {
+			eddyStoneList.addStone(newStone);
+		}
+	}
+
 	private void sendDistance(String instance, double distance) {
 		Intent newDistance = new Intent("newDistance");
 		newDistance.putExtra("instance", instance);
@@ -100,80 +157,97 @@ public class BeaconListenerService extends Service {
 		LocalBroadcastManager.getInstance(getApplicationContext()).sendBroadcast(newDistance);
 	}
 
-	private void sendClosestBeacon(final EddyStone newStone) {
-		new AsyncTask<Void, Void, Void>() {
+	private void sendClosestBeacon(final EddyStone closest) {
+
+		if (beaconCollection == null) return;
+
+		handler.removeCallbacks(removeRunnable);
+		if (closest != null) {
+			handler.postDelayed(removeRunnable, TimeUnit.SECONDS.toMillis(30));
+			//	Log.d(TAG, "Adding timer");
+		}
+
+		new AsyncTask<Void, Void, Boolean>() {
 
 			@Override
-			protected Void doInBackground(Void... params) {
+			protected Boolean doInBackground(Void... params) {
 				initApi();
 				try {
+					if ((getLastInstance() != null && closest == null) || !closest.getInstance().equals(getLastInstance())) {
 
-					BeaconCollection execute = myApiService.beacons().list().execute();
-					Beacon beacon = findBeacon(newStone, execute);
-					if (beacon != null) {
-						eddyStoneList.addStone(newStone);
+						lastSent = System.currentTimeMillis();
 
-						final EddyStone closest = eddyStoneList.getClosest();
+						eddyStoneList.evict(TimeUnit.SECONDS.toMillis(30));
 
-						if ( (getLastInstance() != null && closest == null)
-							|| !closest.getInstance().equals(getLastInstance())) {
+						if (getLastKey() != 0) {
+							myApiService.position().update(getLastKey()).execute();
+						}
 
-							lastSent = System.currentTimeMillis();
-
-							for (EddyStone eddyStone : eddyStoneList.keySet()) {
-								System.out.println(eddyStone);
+						if (closest != null) {
+							Beacon closesBeacon = findBeacon(closest, beaconCollection);
+							if (closesBeacon != null) {
+								UserPosition userPosition = new UserPosition();
+								userPosition.setUserUUID(userId);
+								userPosition.setRoomName(closesBeacon.getRoomName());
+								userPosition.setOldId(getLastKey());
+								StoredPosition storedPosition = myApiService.position().store(userPosition).execute();
+								setLastKey(storedPosition.getId());
+								setLastRoom(userPosition.getRoomName());
+								setLastInstance(closest.getInstance());
 							}
-
-							eddyStoneList.evict(TimeUnit.SECONDS.toMillis(30));
-
-							if(getLastKey()!=0){
+						} else {
+							if (getLastKey() != 0) {
 								myApiService.position().update(getLastKey()).execute();
-							}
-
-							setLastKey(0);
-							setLastRoom(null);
-							setLastInstance(null);
-
-							if (closest != null) {
-								Beacon closesBeacon = findBeacon(closest, execute);
-								if (closesBeacon != null) {
-									System.out.println(execute.getItems());
-									UserPosition userPosition = new UserPosition();
-									userPosition.setUserUUID("74c73cd5-c219-4b6b-93e7-e9311a952821");
-									userPosition.setRoomName(closesBeacon.getRoomName());
-									System.out.println(userPosition);
-									userPosition.setOldId(getLastKey());
-									StoredPosition storedPosition = myApiService.position().store(userPosition).execute();
-									setLastKey(storedPosition.getId());
-									setLastRoom(userPosition.getRoomName());
-									setLastInstance(closesBeacon.getInstance());
-								}
+								setLastKey(0);
+								setLastRoom(null);
+								setLastInstance(null);
 							}
 						}
 					}
+					//Log.d(TAG, "Room updated: " + closest==null?"rooms removed":closest.getInstance());
+					return true;
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
-				return null;
+
+				return false;
 			}
 
 			@Override
-			protected void onPostExecute(Void aVoid) {
+			protected void onPostExecute(Boolean aVoid) {
 				super.onPostExecute(aVoid);
-				LocalBroadcastManager.getInstance(getApplicationContext()).sendBroadcast(new Intent("newRoom"));
-			}
-
-			@Nullable
-			private Beacon findBeacon(EddyStone newStone, BeaconCollection execute) {
-				for (Beacon beacon : execute.getItems()) {
-					if (beacon.getNameSpace().toLowerCase().equals(newStone.getNameSpace()) &&
-						beacon.getInstance().toLowerCase().equals(newStone.getInstance())) {
-						return beacon;
-					}
+				if (aVoid) {
+					LocalBroadcastManager.getInstance(getApplicationContext()).sendBroadcast(new Intent("newRoom"));
 				}
-				return null;
 			}
-		}.execute();
+		}.executeOnExecutor(AsyncTask.SERIAL_EXECUTOR);
+	}
+
+	@Nullable
+	private Beacon findBeacon(EddyStone newStone, BeaconCollection execute) {
+		if (execute == null) return null;
+		for (Beacon beacon : execute.getItems()) {
+			if (beacon.getNameSpace().toLowerCase().equals(newStone.getNameSpace()) &&
+				beacon.getInstance().toLowerCase().equals(newStone.getInstance())) {
+				return beacon;
+			}
+		}
+		return null;
+	}
+
+	private void getNameList() {
+		AsyncTask.THREAD_POOL_EXECUTOR.execute(new Runnable() {
+			@Override
+			public void run() {
+				try {
+					initApi();
+					beaconCollection = myApiService.beacons().list().execute();
+					//Log.d(TAG, "name collection downloaded");
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		});
 	}
 
 	public long getLastKey() {
@@ -208,5 +282,18 @@ public class BeaconListenerService extends Service {
 				.setRootUrl("https://ch-zhgdg-mikael-becons.appspot.com/_ah/api/");
 			myApiService = builder.build();
 		}
+	}
+
+	public List<EddyStoneRoom> getBeaconRoomData() {
+		List<EddyStoneRoom> list = new ArrayList<>();
+		synchronized (eddyStoneList) {
+			for (EddyStone eddyStone : eddyStoneList.keySet()) {
+				Beacon beacon = findBeacon(eddyStone, beaconCollection);
+				if (beacon != null) {
+					list.add(new EddyStoneRoom(eddyStone, beacon.getRoomName()));
+				}
+			}
+		}
+		return list;
 	}
 }

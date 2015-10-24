@@ -11,6 +11,7 @@ public class EvictList extends HashMap<EddyStone, Long> {
 	private static final String TAG = EvictList.class.getSimpleName();
 
 	public void addStone(EddyStone stone) {
+		Log.d(TAG, "Updating stone " + stone.getInstance());
 		super.remove(stone);
 		super.put(stone, System.currentTimeMillis());
 	}
@@ -21,7 +22,6 @@ public class EvictList extends HashMap<EddyStone, Long> {
 		while (iterator.hasNext()) {
 			Entry<EddyStone, Long> next = iterator.next();
 			if (now - next.getValue() > olderThanTime) {
-				Log.d(TAG, "Evicting old value " + next);
 				iterator.remove();
 			}
 		}

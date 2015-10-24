@@ -14,24 +14,24 @@
 </head>
 <body role="document" style="padding-top: 70px;">
 
-<svg width="256" height="100" viewBox="0 0 256 100">
-    <path id="room1" d="M 39 22 L 109 22 L 109 55 L 94 55 L 94 86 L 7 86 L 7 48 L 39 48 Z"/>
-    <rect id="room2" x="111" y="22" width="21" height="28" />
-    <rect id="room3" x="133" y="22" width="19" height="28" />
-    <rect id="room4" x="154" y="22" width="14" height="28" />
-    <rect id="room5" x="201" y="8" width="45" height="26" />
-    <rect id="room6" x="166" y="58" width="26" height="29" />
-    <rect id="room7" x="140" y="58" width="24" height="29" />
-    <rect id="room8" x="124" y="58" width="14" height="29" />
-    <rect id="room9" x="98" y="58" width="24" height="29" />
+<svg width="512" height="200" viewBox="0 0 256 100">
+    <path id="Room01" d="M 39 22 L 109 22 L 109 55 L 94 55 L 94 87 L 7 87 L 7 48 L 39 48 Z"/>
+    <rect id="Room02" x="111" y="22" width="21" height="28" />
+    <rect id="Room03" x="133" y="22" width="19" height="28" />
+    <rect id="Room04" x="154" y="22" width="14" height="28" />
+    <rect id="Room05" x="201" y="8" width="45" height="26" />
+    <rect id="Room06" x="166" y="58" width="26" height="29" />
+    <rect id="Room07" x="140" y="58" width="24" height="29" />
+    <rect id="Room08" x="124" y="58" width="14" height="29" />
+    <rect id="Room09" x="98" y="58" width="24" height="29" />
 
 </svg>
-<div id="slider"></div>
-
+<div style="padding:30px;">
+<div id="slider" ></div>
+</div>
 <script>
 
     $roomData=[];
-    room1.style.fill = "#f00";
     $( "#slider" ).slider({
         min: 0,
         max: 100,
@@ -48,28 +48,24 @@
         console.log( $roomData[pos])
 
 
-        $("#room1").attr('style', "fill:#000");
-        $("#room2").attr('style', "fill:#000");
-        $("#room3").attr('style', "fill:#000");
+        $("#Room01").attr('style', "fill:#000");
+        $("#Room02").attr('style', "fill:#000");
+        $("#Room03").attr('style', "fill:#000");
+        $("#Room04").attr('style', "fill:#000");
+        $("#Room05").attr('style', "fill:#000");
+        $("#Room06").attr('style', "fill:#000");
+        $("#Room07").attr('style', "fill:#000");
+        $("#Room08").attr('style', "fill:#000");
+        $("#Room09").attr('style', "fill:#000");
 
-        data.roomCoverageList.forEach(function(entry){
-            console.log(entry.name + entry.percent);
-            var color = interpolateColor('#000000','#ff5555', 1, Math.min(1,entry.percent*3))
-
-            if(entry.name==='LivingRoom'){
-                $("#room1").attr('style', "fill:" + color);
-            }
-
-            if(entry.name==='Office'){
-                $("#room2").attr('style', "fill:" + color);
-            }
-
-
-            if(entry.name==='Sleeping'){
-                $("#room3").attr('style', "fill:" + color);
-            }
-
-        });
+        try {
+            data.roomCoverageList.forEach(function(entry){
+                console.log(entry.name + entry.percent);
+                var color = interpolateColor('#000000','#ff5555', 1, Math.min(1,entry.percent*3))
+                $("#" + entry.name).attr('style', "fill:" + color);
+            });
+        } finally {
+        }
     }
 
 

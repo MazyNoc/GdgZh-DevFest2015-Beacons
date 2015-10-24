@@ -84,6 +84,6 @@ public class EddyStone {
 
 	@Override
 	public String toString() {
-		return String.format("Rssi: %d, txPower: %d, distance: %.2f, %s", rssi, txPower, getDistance(), instance);
+		return String.format("Rssi: %d, txPower: %d, distance: %.2f, %.2f, %s", rssi, txPower, getDistance(), getAgedDistance(), instance);
 	}
 }

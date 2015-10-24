@@ -1,5 +1,10 @@
 package nu.annat.beacons;
 
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothManager;
+import android.bluetooth.le.BluetoothLeScanner;
+import android.bluetooth.le.ScanCallback;
+import android.bluetooth.le.ScanResult;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -18,13 +23,20 @@ public class RoomFragment extends Fragment {
 	private Room room;
 	private TextView tv;
 	private TextView[] c = new TextView[4];
-	private BroadcastReceiver newDistance = new BroadcastReceiver() {
+	private BluetoothLeScanner scanner;
+
+	ScanCallback scanCallback = new ScanCallback() {
 		@Override
-		public void onReceive(Context context, Intent intent) {
-			String instance = intent.getStringExtra("instance");
-			double distance = intent.getDoubleExtra("distance", -1);
-			if (distance >= 0) {
-				updateDistance(instance, distance);
+		public void onScanResult(int callbackType, ScanResult result) {
+			super.onScanResult(callbackType, result);
+			if (result != null && result.getScanRecord() != null && result.getScanRecord().getServiceUuids() != null) {
+				if (result.getScanRecord().getServiceUuids().contains(EddyStone.EDDYSTONE_SERVICE_UUID)) {
+					try {
+						EddyStone newStone = new EddyStone(result);
+						updateDistance(newStone.getInstance(), newStone.getDistance());
+					} catch (Exception ignore) {
+					}
+				}
 			}
 		}
 	};
@@ -32,7 +44,7 @@ public class RoomFragment extends Fragment {
 	private void updateDistance(String instance, double distance) {
 		room.updateInstance(instance, distance);
 		Room.Point center = room.getCenter();
-		if(center == null){
+		if (center == null) {
 			tv.setText("outside");
 			return;
 		}
@@ -42,10 +54,8 @@ public class RoomFragment extends Fragment {
 			c[i].setText(room.corners.get(i).toString());
 		}
 
-
 		CV cv = (CV) getView().findViewById(R.id.cv);
 		cv.setPoint(room.p1, room.p2, room.p3, room.p4);
-
 	}
 
 	@Nullable
@@ -63,6 +73,8 @@ public class RoomFragment extends Fragment {
 		c[1] = (TextView) view.findViewById(R.id.c2);
 		c[2] = (TextView) view.findViewById(R.id.c3);
 		c[3] = (TextView) view.findViewById(R.id.c4);
+
+		getContext().startService(new Intent(getContext(), BeaconListenerService.class));
 	}
 
 	@Override
@@ -78,13 +90,18 @@ public class RoomFragment extends Fragment {
 	@Override
 	public void onStart() {
 		super.onStart();
-		LocalBroadcastManager.getInstance(getActivity()).registerReceiver(newDistance, new IntentFilter("newDistance"));
+
+		BluetoothManager manager = (BluetoothManager) getContext().getApplicationContext().getSystemService(Context.BLUETOOTH_SERVICE);
+		BluetoothAdapter btAdapter = manager.getAdapter();
+		scanner = btAdapter.getBluetoothLeScanner();
+		scanner.startScan(scanCallback);
 	}
 
 	@Override
 	public void onStop() {
 		super.onStop();
-		LocalBroadcastManager.getInstance(getActivity()).unregisterReceiver(newDistance);
+		if(scanner!=null){
+			scanner.stopScan(scanCallback);
+		}
 	}
-
 }

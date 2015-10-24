@@ -77,7 +77,11 @@ public class MainActivityFragment extends Fragment {
 	private void updateRoomName() {
 		SharedPreferences aDefault = getContext().getSharedPreferences("default", Context.MODE_PRIVATE);
 		String lastRoom = aDefault.getString("lastRoom", null);
-		getActivity().setTitle("You are in " + lastRoom);
+		if(lastRoom==null){
+			getActivity().setTitle("unknown place");
+		} else {
+			getActivity().setTitle("You are in " + lastRoom);
+		}
 	}
 
 	@Override
